@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משחק חללית</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; }
+        canvas { display: block; background-color: black; }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        // תמונות למשחק
+        const spaceshipImage = new Image();
+        spaceshipImage.src = "IMAGES/spaceship.png"; // שנה את הנתיב לפי המיקום שלך
+
+        const enemyImage = new Image();
+        enemyImage.src = "IMAGES/enemy.png"; // שנה את הנתיב לפי המיקום שלך
+
+        const asteroidImage = new Image();
+        asteroidImage.src = "IMAGES/asteroid.png"; // שנה את הנתיב לפי המיקום שלך
+
+        let spaceship = { x: canvas.width / 2, y: canvas.height - 50, width: 100, height: 100, speed: 5, dx: 0 };
+        let bullets = [];
+        let asteroids = [];
+        let enemies = [];
+        let score = 0;
+        let gameOver = false;
+
+        document.addEventListener("keydown", moveSpaceship);
+        document.addEventListener("keyup", stopSpaceship);
+        document.addEventListener("keydown", shootBullet);
+
+        function moveSpaceship(e) {
+            if (e.key === "ArrowLeft") spaceship.dx = -spaceship.speed;
+            if (e.key === "ArrowRight") spaceship.dx = spaceship.speed;
+        }
+
+        function stopSpaceship(e) {
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") spaceship.dx = 0;
+        }
+
+        function shootBullet(e) {
+            if (e.key === " ") {
+                if (!gameOver) {
+                    bullets.push({ x: spaceship.x + spaceship.width / 2 - 2, y: spaceship.y, width: 10, height: 20, speed: 5 });
+                }
+            }
+        }
+
+        function createAsteroids() {
+            if (Math.random() < 0.02) {
+                const asteroidX = Math.random() * canvas.width;
+                asteroids.push({ x: asteroidX, y: -50, width: 60, height: 60, speed: Math.random() * 3 + 1 });
+            }
+        }
+
+        function createEnemies() {
+            if (Math.random() < 0.02) {
+                const enemyX = Math.random() * canvas.width;
+                enemies.push({ x: enemyX, y: -50, width: 60, height: 60, speed: Math.random() * 2 + 1 });
+            }
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            spaceship.x += spaceship.dx;
+
+            if (spaceship.x < 0) spaceship.x = 0;
+            if (spaceship.x + spaceship.width > canvas.width) spaceship.x = canvas.width - spaceship.width;
+
+            bullets.forEach(bullet => {
+                bullet.y -= bullet.speed;
+                if (bullet.y < 0) {
+                    bullets.splice(bullets.indexOf(bullet), 1);
+                }
+            });
+
+            asteroids.forEach(asteroid => {
+                asteroid.y += asteroid.speed;
+                if (asteroid.y > canvas.height) {
+                    asteroids.splice(asteroids.indexOf(asteroid), 1);
+                }
+            });
+
+            enemies.forEach(enemy => {
+                enemy.y += enemy.speed;
+                if (enemy.y > canvas.height) {
+                    enemies.splice(enemies.indexOf(enemy), 1);
+                }
+            });
+
+            bullets.forEach(bullet => {
+                enemies.forEach(enemy => {
+                    if (bullet.x < enemy.x + enemy.width &&
+                        bullet.x + bullet.width > enemy.x &&
+                        bullet.y < enemy.y + enemy.height &&
+                        bullet.y + bullet.height > enemy.y) {
+                        score++;
+                        enemies.splice(enemies.indexOf(enemy), 1);
+                        bullets.splice(bullets.indexOf(bullet), 1);
+                    }
+                });
+            });
+
+            asteroids.forEach(asteroid => {
+                if (spaceship.x < asteroid.x + asteroid.width &&
+                    spaceship.x + spaceship.width > asteroid.x &&
+                    spaceship.y < asteroid.y + asteroid.height &&
+                    spaceship.y + spaceship.height > asteroid.y) {
+                    gameOver = true;
+                }
+            });
+
+            createAsteroids();
+            createEnemies();
+
+            draw();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ציור חללית (כעת בגודל גדול יותר)
+            ctx.drawImage(spaceshipImage, spaceship.x, spaceship.y, spaceship.width, spaceship.height);
+
+            // ציור יריות
+            bullets.forEach(bullet => {
+                ctx.fillStyle = "red";
+                ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+            });
+
+            // ציור אסטרואידים (כעת בגודל גדול יותר)
+            asteroids.forEach(asteroid => {
+                ctx.drawImage(asteroidImage, asteroid.x, asteroid.y, asteroid.width, asteroid.height);
+            });
+
+            // ציור אויבים (כעת בגודל גדול יותר)
+            enemies.forEach(enemy => {
+                ctx.drawImage(enemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+            });
+
+            // ציור הניקוד
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.fillText("ניקוד: " + score, 10, 30);
+
+            if (gameOver) {
+                ctx.fillText("משחק נגמר! לחץ R להתחיל מחדש", canvas.width / 2 - 120, canvas.height / 2);
+            }
+        }
+
+        function restartGame() {
+            if (gameOver) {
+                gameOver = false;
+                score = 0;
+                spaceship.x = canvas.width / 2;
+                asteroids = [];
+                enemies = [];
+                bullets = [];
+            }
+        }
+
+        function gameLoop() {
+            update();
+            if (!gameOver) requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "r") {
+                restartGame();
+                gameLoop();
+            }
+        });
+    </script>
+</body>
+</html>
